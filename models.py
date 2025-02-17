@@ -1,5 +1,6 @@
 """Models module for Kokoro TTS Local"""
 
+from numbers import Number
 from typing import Optional, Tuple, List
 import torch
 from kokoro import KPipeline
@@ -9,6 +10,7 @@ import codecs
 from pathlib import Path
 import numpy as np
 import shutil
+import logging
 
 # Set environment variables for proper encoding
 os.environ["PYTHONIOENCODING"] = "utf-8"
@@ -151,12 +153,12 @@ try:
         if not test_phonemes:
             raise Exception("Phonemization returned empty result")
     except Exception as e:
-        print(f"Warning: espeak-ng test failed: {e}")
-        print("Some functionality may be limited")
+        logging.debug(f"Warning: espeak-ng test failed: {e}")
+        logging.debug("Some functionality may be limited")
 
 except ImportError as e:
-    print(f"Warning: Required packages not found: {e}")
-    print("Installing dependencies...")
+    logging.debug(f"Warning: Required packages not found: {e}")
+    logging.debug("Installing dependencies...")
     import subprocess
 
     subprocess.check_call(["pip", "install", "espeakng-loader", "phonemizer-fork"])
@@ -185,14 +187,14 @@ def download_voice_files():
 
     downloaded_voices = []
 
-    print("\nDownloading voice files...")
+    logging.debug("\nDownloading voice files...")
     for voice_file in VOICE_FILES:
         try:
             # Full path where the voice file should be
             voice_path = voices_dir / voice_file
 
             if not voice_path.exists():
-                print(f"Downloading {voice_file}...")
+                logging.debug(f"Downloading {voice_file}...")
                 # Download to a temporary location first
                 temp_path = hf_hub_download(
                     repo_id="hexgrad/Kokoro-82M",
@@ -205,12 +207,12 @@ def download_voice_files():
                 os.makedirs(os.path.dirname(voice_path), exist_ok=True)
                 shutil.move(temp_path, voice_path)
                 downloaded_voices.append(voice_file)
-                print(f"Successfully downloaded {voice_file}")
+                logging.debug(f"Successfully downloaded {voice_file}")
             else:
-                print(f"Voice file {voice_file} already exists")
+                logging.debug(f"Voice file {voice_file} already exists")
                 downloaded_voices.append(voice_file)
         except Exception as e:
-            print(f"Warning: Failed to download {voice_file}: {e}")
+            logging.debug(f"Warning: Failed to download {voice_file}: {e}")
             continue
 
     # Clean up temporary directory
@@ -218,16 +220,16 @@ def download_voice_files():
         shutil.rmtree("temp_voices")
 
     if not downloaded_voices:
-        print(
+        logging.debug(
             "Warning: No voice files could be downloaded. Please check your internet connection."
         )
     else:
-        print(f"Successfully processed {len(downloaded_voices)} voice files")
+        logging.debug(f"Successfully processed {len(downloaded_voices)} voice files")
 
     return downloaded_voices
 
 
-def build_model(model_path: str, device: str) -> KPipeline:
+def build_model(model_path: str, device: str, lang: str = "a") -> KPipeline:
     """Build and return the Kokoro pipeline with proper encoding configuration"""
     global _pipeline
     if _pipeline is None:
@@ -236,11 +238,11 @@ def build_model(model_path: str, device: str) -> KPipeline:
             patch_json_load()
 
             # Download model if it doesn't exist
-            if model_path is None:
+            if model_path is None or "":
                 model_path = "kokoro-v1_0.pth"
 
             if not os.path.exists(model_path):
-                print(f"Downloading model file {model_path}...")
+                logging.debug(f"Downloading model file {model_path}...")
                 from huggingface_hub import hf_hub_download
 
                 model_path = hf_hub_download(
@@ -249,29 +251,33 @@ def build_model(model_path: str, device: str) -> KPipeline:
                     local_dir=".",
                     force_download=True,
                 )
-                print(f"Model downloaded to {model_path}")
+                logging.debug(f"Model downloaded to {model_path}")
 
             # Download config if it doesn't exist
             config_path = "config.json"
-            if not os.path.exists(config_path):
-                print("Downloading config file...")
-                config_path = hf_hub_download(
+            if (
+                not os.path.exists(config_path)
+                and "hf_hub_download" in locals()
+                and callable(locals()["hf_hub_download"])
+            ):
+                logging.debug("Downloading config file...")
+                config_path = hf_hub_download(  # type: ignore
                     repo_id="hexgrad/Kokoro-82M",
                     filename="config.json",
                     local_dir=".",
                     force_download=True,
                 )
-                print(f"Config downloaded to {config_path}")
+                logging.debug(f"Config downloaded to {config_path}")
 
             # Download voice files
             downloaded_voices = download_voice_files()
 
             if not downloaded_voices:
-                print("Error: No voice files available. Cannot proceed.")
+                logging.debug("Error: No voice files available. Cannot proceed.")
                 raise ValueError("No voice files available")
 
             # Initialize pipeline with American English by default
-            _pipeline = KPipeline(lang_code="a")
+            _pipeline = KPipeline(lang_code=lang)
             if _pipeline is None:
                 raise ValueError("Failed to initialize KPipeline - pipeline is None")
 
@@ -288,14 +294,16 @@ def build_model(model_path: str, device: str) -> KPipeline:
                 if os.path.exists(voice_path):
                     try:
                         _pipeline.load_voice(voice_path)
-                        print(f"Successfully loaded voice: {voice_file}")
+                        logging.debug(f"Successfully loaded voice: {voice_file}")
                         break  # Successfully loaded a voice
                     except Exception as e:
-                        print(f"Warning: Failed to load voice {voice_file}: {e}")
+                        logging.debug(
+                            f"Warning: Failed to load voice {voice_file}: {e}"
+                        )
                         continue
 
         except Exception as e:
-            print(f"Error initializing pipeline: {e}")
+            logging.debug(f"Error initializing pipeline: {e}")
             raise
     return _pipeline
 
@@ -306,7 +314,7 @@ def list_available_voices() -> List[str]:
 
     # Create voices directory if it doesn't exist
     if not voices_dir.exists():
-        print(f"Creating voices directory at {voices_dir.absolute()}")
+        logging.debug(f"Creating voices directory at {voices_dir.absolute()}")
         voices_dir.mkdir(exist_ok=True)
         return []
 
@@ -315,11 +323,11 @@ def list_available_voices() -> List[str]:
 
     # If no voice files found in voices directory
     if not voice_files:
-        print(f"No voice files found in {voices_dir.absolute()}")
+        logging.debug(f"No voice files found in {voices_dir.absolute()}")
         # Try to find voice files in the root directory's voices folder
         root_voices = list(Path(".").glob("voices/*.pt"))
         if root_voices:
-            print("Found voice files in root voices directory, moving them...")
+            logging.debug("Found voice files in root voices directory, moving them...")
             for voice_file in root_voices:
                 target_path = voices_dir / voice_file.name
                 if not target_path.exists():
@@ -328,7 +336,7 @@ def list_available_voices() -> List[str]:
             voice_files = list(voices_dir.glob("*.pt"))
 
     if not voice_files:
-        print(
+        logging.debug(
             "No voice files found. Please run the application again to download voices."
         )
         return []
@@ -338,7 +346,7 @@ def list_available_voices() -> List[str]:
 
 def load_voice(voice_name: str, device: str) -> torch.Tensor:
     """Load a voice model"""
-    pipeline = build_model(None, device)
+    pipeline = build_model("", device)
     # Format voice path correctly - strip .pt if it was included
     voice_name = voice_name.replace(".pt", "")
     voice_path = f"voices/{voice_name}.pt"
@@ -351,17 +359,15 @@ def generate_speech(
     model: KPipeline,
     text: str,
     voice: str,
-    lang: str = "a",
     device: str = "cpu",
     speed: float = 1.0,
-) -> Tuple[Optional[torch.Tensor], Optional[str]]:
+) -> Tuple[Optional[List[torch.Tensor]], Optional[str], Optional[str]]:
     """Generate speech using the Kokoro pipeline
 
     Args:
         model: KPipeline instance
         text: Text to synthesize
         voice: Voice name (e.g. 'af_bella')
-        lang: Language code ('a' for American English, 'b' for British English)
         device: Device to use ('cuda' or 'cpu')
         speed: Speech speed multiplier (default: 1.0)
 
@@ -388,25 +394,26 @@ def generate_speech(
 
         # Ensure voice is loaded before generating
         if voice_name not in model.voices:
-            print(f"Loading voice {voice_name}...")
+            logging.debug(f"Loading voice {voice_name}...")
             model.load_voice(voice_path)
 
         if voice_name not in model.voices:
             raise ValueError(f"Failed to load voice {voice_name}")
 
         # Generate speech with the new API
-        print(f"Generating speech with device: {model.device}")
+        logging.debug(f"Generating speech with device: {model.device}")
         generator = model(text, voice=voice_path, speed=speed, split_pattern=r"\n+")
 
         # Get first generated segment and convert numpy array to tensor if needed
+        all_audio = []
         for gs, ps, audio in generator:
             if audio is not None:
                 if isinstance(audio, np.ndarray):
                     audio = torch.from_numpy(audio).float()
-                return audio, ps
+                all_audio.append(audio)
+                return all_audio, ps, gs
+        # TODO: check if this is the correct return location
 
-        return None, None
     except Exception as e:
-        print(f"Error generating speech: {e}")
-        return None, None
-
+        logging.debug(f"Error generating speech: {e}")
+    return None, None, None
