@@ -1,5 +1,8 @@
 from models import build_model, generate_speech, list_available_voices
 from pathlib import Path
+from view.abstract import AbstractView
+from view.lib import NoView
+from view.cli import CLIView
 import torch
 import logging
 import sys
@@ -15,7 +18,7 @@ DEFAULT_TEXT = "Hello, welcome to this text-to-speech test."
 class Controller:
     def __init__(
         self,
-        view,
+        view: AbstractView = NoView(),
         debug: bool = False,
         speed: float = 1.0,
         output_file: str = DEFAULT_OUTPUT_FILE,
@@ -51,7 +54,7 @@ class Controller:
         return model
 
     def handle_play_audio(self):
-        data, samplerate = self.view.get_audio(self.OUTPUT)
+        data, samplerate = self.view.get_audio(self.OUTPUT or DEFAULT_OUTPUT_FILE)
         self.view.play_audio(data, samplerate)
 
     def handle_generate_speech(self, text: str = "", quiet: bool = False):
@@ -123,7 +126,6 @@ class Controller:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logging.info("Welcome to TTS")
-    from view.cli import CLIView
 
     controller = Controller(CLIView())
 

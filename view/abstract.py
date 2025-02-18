@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from typing import Dict, Tuple
 from pathlib import Path
 import numpy as np
+from torch import Tensor
 
 
 class AbstractView(ABC):
@@ -8,7 +10,7 @@ class AbstractView(ABC):
         self.voices = voices
 
     @abstractmethod
-    def get_params(self, voice: str, speed: float, text: str, debug: bool):
+    def get_params(self, voice: str, speed: float, text: str) -> Tuple:
         """
         Get user inputs for voice, speed, and text.
         """
@@ -38,14 +40,14 @@ class AbstractView(ABC):
         pass
 
     @abstractmethod
-    def get_audio(self, path: str):
+    def get_audio(self, path: str) -> Tuple:
         """
         Get audio data from a file.
         """
         pass
 
     @abstractmethod
-    def play_audio(self, audio: np.ndarray, sample_rate: int):
+    def play_audio(self, audio: Tensor, sample_rate: int):
         """
         Play audio.
         """
@@ -73,7 +75,7 @@ class AbstractView(ABC):
         pass
 
     @abstractmethod
-    def get_menu_selection(self) -> str:
+    def get_menu_selection(self, choices: Dict) -> str:
         """
         Get the user's menu selection.
         """
