@@ -4,9 +4,6 @@ import numpy as np
 
 
 class AbstractView(ABC):
-    def __init__(self, voices: list = []):
-        self.voices = voices
-
     def set_voices(self, voices: list):
         self.voices = voices
 
