@@ -54,7 +54,7 @@ class Controller:
         data, samplerate = self.view.get_audio(self.OUTPUT)
         self.view.play_audio(data, samplerate)
 
-    def handle_generate_speech(self):
+    def handle_generate_speech(self, text: str = "", quiet: bool = False):
         if self.voices == [] or self.model is None:
             print(
                 "App not properly initialized. Voices and model found to be:",
@@ -67,7 +67,8 @@ class Controller:
         self.voice, self.speed, self.text = self.view.get_params(
             self.voice, self.speed, self.text
         )
-
+        if text != "":
+            self.text = text
         # Generate speech
         all_audio, ps, gs = generate_speech(
             self.model, self.text, self.voice, self.speed
@@ -77,7 +78,7 @@ class Controller:
         if all_audio:
             final_audio = torch.cat(all_audio, dim=0)
             self.view.show_generated_segment(gs, ps)
-            if self.view.prompt_play_audio():
+            if self.view.prompt_play_audio() and not quiet:
                 self.view.play_audio(final_audio, SAMPLE_RATE)
             output_path = Path(self.OUTPUT)
             self.view.save_audio_with_retry(
@@ -87,7 +88,7 @@ class Controller:
             self.view.show_no_audio_generated()
 
     def handle_list_voices(self):
-        self.view.show_available_voices(self.voices)
+        return self.view.show_available_voices(self.voices)
 
     def handle_exit(self):
         self.view.show_exit()
@@ -100,6 +101,9 @@ class Controller:
         else:
             self.view.show_invalid_choice()
             return self.handle_menu()
+
+    def handle_set_voice(self, voice: str):
+        self.voice = voice if voice in self.voices else self.voices[0]
 
     def load(self):
         self.model = self.__init_model__()
@@ -122,7 +126,9 @@ if __name__ == "__main__":
     from view.cli import CLIView
 
     controller = Controller(CLIView())
+
     logging.debug("Controller loading...")
     controller.load()
+
     logging.debug("Controller starting...")
     controller.start()
