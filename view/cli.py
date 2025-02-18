@@ -52,7 +52,7 @@ class CLIView(AbstractView):
 
     def play_audio(self, audio: np.ndarray, sample_rate: int):
         try:
-            sd.play(audio, sample_rate)
+            sd.play(audio, sample_rate, blocksize=2048)
             sd.wait()
             print("")
         except Exception as e:
