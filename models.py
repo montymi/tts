@@ -1,7 +1,7 @@
 """Models module for Kokoro TTS Local"""
 
 from numbers import Number
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, cast
 import torch
 from kokoro import KPipeline
 import os
@@ -187,7 +187,7 @@ def download_voice_files():
 
     downloaded_voices = []
 
-    logging.debug("\nDownloading voice files...")
+    logging.debug("Downloading voice files...")
     for voice_file in VOICE_FILES:
         try:
             # Full path where the voice file should be
@@ -400,9 +400,12 @@ def generate_speech(
         if voice_name not in model.voices:
             raise ValueError(f"Failed to load voice {voice_name}")
 
+        cast_speed: Number = cast(Number, speed)
         # Generate speech with the new API
         logging.debug(f"Generating speech with device: {model.device}")
-        generator = model(text, voice=voice_path, speed=speed, split_pattern=r"\n+")
+        generator = model(
+            text, voice=voice_path, speed=cast_speed, split_pattern=r"\n+"
+        )
 
         # Get first generated segment and convert numpy array to tensor if needed
         all_audio = []
@@ -411,7 +414,11 @@ def generate_speech(
                 if isinstance(audio, np.ndarray):
                     audio = torch.from_numpy(audio).float()
                 all_audio.append(audio)
-                return all_audio, ps, gs
+                return (
+                    all_audio,
+                    ps if isinstance(ps, str) else None,
+                    gs if isinstance(gs, str) else None,
+                )
         # TODO: check if this is the correct return location
 
     except Exception as e:
