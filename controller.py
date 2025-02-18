@@ -1,8 +1,8 @@
-from models import build_model, generate_speech, list_available_voices
+from .models import build_model, generate_speech, list_available_voices
 from pathlib import Path
-from view.abstract import AbstractView
-from view.lib import NoView
-from view.cli import CLIView
+from .view.abstract import AbstractView
+from .view.lib import NoView
+from .view.cli import CLIView
 import torch
 import logging
 import sys
@@ -57,7 +57,7 @@ class Controller:
         data, samplerate = self.view.get_audio(self.OUTPUT or DEFAULT_OUTPUT_FILE)
         self.view.play_audio(data, samplerate)
 
-    def handle_generate_speech(self, text: str = "", quiet: bool = False):
+    def handle_generate_speech(self, text: str = "", path: str = "", quiet: bool = False):
         if self.voices == [] or self.model is None:
             print(
                 "App not properly initialized. Voices and model found to be:",
@@ -83,7 +83,7 @@ class Controller:
             self.view.show_generated_segment(gs, ps)
             if self.view.prompt_play_audio() and not quiet:
                 self.view.play_audio(final_audio, SAMPLE_RATE)
-            output_path = Path(self.OUTPUT)
+            output_path = Path(path) if path != "" else Path(self.OUTPUT)
             self.view.save_audio_with_retry(
                 final_audio.numpy(), SAMPLE_RATE, output_path
             )

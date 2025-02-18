@@ -3,7 +3,7 @@ import numpy as np
 import soundfile as sf
 import sounddevice as sd
 from typing import Dict
-from view.abstract import AbstractView
+from .abstract import AbstractView
 
 
 class NoView(AbstractView):
