@@ -3,7 +3,7 @@ import numpy as np
 import soundfile as sf
 import sounddevice as sd
 from typing import Dict
-from .abstract import AbstractView
+from packages.tts.view.abstract import AbstractView
 
 
 class NoView(AbstractView):

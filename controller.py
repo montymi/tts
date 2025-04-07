@@ -1,8 +1,8 @@
-from .models import build_model, generate_speech, list_available_voices
+from packages.tts.models import build_model, generate_speech, list_available_voices
 from pathlib import Path
-from .view.abstract import AbstractView
-from .view.lib import NoView
-from .view.cli import CLIView
+from packages.tts.view.abstract import AbstractView
+from packages.tts.view.lib import NoView
+from packages.tts.view.cli import CLIView
 import torch
 import logging
 import sys
